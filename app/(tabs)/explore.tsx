@@ -1,45 +1,47 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
-import { Alert } from 'react-native';
+import { useRef, useState } from 'react';
+import { captureRef } from 'react-native-view-shot';
+import IDCardTemplate from '@/components/IDCardTemplate';
 
 export default function ExploreScreen() {
   const { scanHistory } = useAuth();
+  const [printingData, setPrintingData] = useState<any>(null);
+  const cardRef = useRef<View>(null);
 
   const handlePrint = async (data: any) => {
-    const html = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial; padding: 20px; }
-            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; }
-            .content { margin-top: 20px; }
-            .row { margin: 10px 0; }
-            .label { font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h2>DATA SCAN QR CODE</h2>
-          </div>
-          <div class="content">
-            <div class="row"><span class="label">Waktu Scan:</span> ${data.timestamp}</div>
-            <div class="row"><span class="label">Nama:</span> ${data.name}</div>
-            <div class="row"><span class="label">Company:</span> ${data.company}</div>
-            <div class="row"><span class="label">Posisi:</span> ${data.position}</div>
-            <div class="row"><span class="label">Alamat:</span> ${data.address}</div>
-            <div class="row"><span class="label">Telepon:</span> ${data.phone}</div>
-            <div class="row"><span class="label">Email:</span> ${data.email}</div>
-          </div>
-        </body>
-      </html>
-    `;
-
     try {
-      await Print.printAsync({ html });
+      // Set data untuk render ID Card
+      setPrintingData(data);
+      
+      // Tunggu render selesai
+      setTimeout(async () => {
+        if (!cardRef.current) return;
+
+        // Capture view as image
+        const uri = await captureRef(cardRef, {
+          format: 'png',
+          quality: 1,
+          width: 757,
+          height: 1069,
+        });
+
+        // Print image
+        await Print.printAsync({
+          uri,
+          width: 257,
+          height: 364,
+        });
+
+        setPrintingData(null);
+        Alert.alert('Success', 'ID Card berhasil dicetak ulang!');
+      }, 500);
     } catch (error) {
-      Alert.alert('Error', 'Gagal mencetak');
+      console.error('Print error:', error);
+      setPrintingData(null);
+      Alert.alert('Info', 'Gagal mencetak. Coba lagi.');
     }
   };
 
@@ -47,13 +49,27 @@ export default function ExploreScreen() {
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
-          <Text style={styles.title}>Scan History</Text>
+          <View style={styles.header}>
+            <Text style={styles.title}>Scan History</Text>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{scanHistory.length} scan</Text>
+            </View>
+          </View>
           {scanHistory.length === 0 ? (
-            <Text style={styles.emptyText}>Belum ada riwayat scan</Text>
+            <View style={styles.emptyState}>
+              <Ionicons name="document-text-outline" size={64} color="#D1D5DB" />
+              <Text style={styles.emptyText}>Belum ada riwayat scan</Text>
+              <Text style={styles.emptySubtext}>
+                Scan QR Code visitor untuk mulai membuat ID Card
+              </Text>
+            </View>
           ) : (
             scanHistory.map((scan) => (
               <View key={scan.scanId} style={styles.historyItem}>
                 <View style={styles.historyHeader}>
+                  <View style={styles.historyIcon}>
+                    <Ionicons name="person" size={24} color="#10b981" />
+                  </View>
                   <View style={styles.historyInfo}>
                     <Text style={styles.historyName}>{scan.name}</Text>
                     <Text style={styles.historyCompany}>{scan.company}</Text>
@@ -62,21 +78,46 @@ export default function ExploreScreen() {
                     onPress={() => handlePrint(scan)}
                     style={styles.printButton}
                   >
-                    <Ionicons name="print-outline" size={20} color="#3B82F6" />
+                    <Ionicons name="print" size={20} color="#10b981" />
+                    <Text style={styles.printButtonText}>Print</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={styles.historyDetails}>
-                  <Text style={styles.detailText}>Posisi: {scan.position}</Text>
-                  <Text style={styles.detailText}>Telepon: {scan.phone}</Text>
-                  <Text style={styles.detailText}>Email: {scan.email}</Text>
-                  <Text style={styles.detailText}>Alamat: {scan.address}</Text>
+                  <View style={styles.detailItem}>
+                    <Ionicons name="briefcase-outline" size={14} color="#6B7280" />
+                    <Text style={styles.detailText}>{scan.position}</Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Ionicons name="call-outline" size={14} color="#6B7280" />
+                    <Text style={styles.detailText}>{scan.phone}</Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Ionicons name="mail-outline" size={14} color="#6B7280" />
+                    <Text style={styles.detailText}>{scan.email}</Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Ionicons name="location-outline" size={14} color="#6B7280" />
+                    <Text style={styles.detailText}>{scan.address}</Text>
+                  </View>
                 </View>
-                <Text style={styles.timestamp}>{scan.timestamp}</Text>
+                <View style={styles.timestampContainer}>
+                  <Ionicons name="time-outline" size={14} color="#9CA3AF" />
+                  <Text style={styles.timestamp}>{scan.timestamp}</Text>
+                </View>
               </View>
             ))
           )}
         </View>
       </ScrollView>
+
+      {/* Hidden ID Card untuk capture */}
+      {printingData && (
+        <View style={styles.hiddenCard}>
+          <View ref={cardRef} collapsable={false}>
+            <IDCardTemplate data={printingData} />
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -97,16 +138,44 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   title: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 16,
+  },
+  badge: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#10b981',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 48,
   },
   emptyText: {
-    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
     color: '#9CA3AF',
-    paddingVertical: 32,
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
   historyItem: {
     borderWidth: 1,
@@ -114,12 +183,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+    backgroundColor: '#FAFAFA',
   },
   historyHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
+    gap: 12,
+  },
+  historyIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   historyInfo: {
     flex: 1,
@@ -135,20 +213,48 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   printButton: {
-    padding: 8,
-    backgroundColor: '#EFF6FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
   },
+  printButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#10b981',
+  },
   historyDetails: {
-    gap: 4,
+    gap: 8,
+    marginBottom: 12,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   detailText: {
     fontSize: 13,
     color: '#6B7280',
+    flex: 1,
+  },
+  timestampContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
   },
   timestamp: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#9CA3AF',
-    marginTop: 8,
+  },
+  hiddenCard: {
+    position: 'absolute',
+    left: -10000,
+    top: -10000,
   },
 });
