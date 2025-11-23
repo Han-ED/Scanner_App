@@ -1,50 +1,43 @@
-# Welcome to your Expo app 👋
+# Scanner App — Expo Router Project
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Scanner App adalah aplikasi mobile berbasis Expo + React Native + Expo Router yang digunakan untuk melakukan scan barcode, autentikasi pengguna, dan pengelolaan data sesuai kebutuhan aplikasi. Proyek ini menggunakan file-based routing, Auth Provider global, dan struktur folder modern yang mudah dikembangkan.
 
 ## Get started
 
-1. Install dependencies
+Fitur Utama
+ - Autentikasi
+   
+   - Login & Register menggunakan API backend.
+	- Penyimpanan token & sesi melalui AuthProvider.
+	- Redirect otomatis jika pengguna belum login.
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
+ - Barcode Scanner
+   - Menggunakan expo-barcode-scanner.
+	- Permission handling & real-time scanning.
+	- Anti double-scan event.
+   
+ - Navigasi Modern (Expo Router)
+   - Routing berbasis folder.
+	- Protected Routes (Auth Guard).
+	- Tab Navigation untuk Home, Scanner, dan Profile/Account.
+   
+ - UI/UX Modern
+   - Tema biru clean yang konsisten.
+	- Komponen custom (Button, Input, Overlay, dsb).
+	- Struktur UI yang mudah dikembangkan.
+   
 ## Learn more
 
-To learn more about developing your project with Expo, look at the following resources:
+Gimana cara copy codenya?
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+git clone <repository-url>
+cd Scanner_App
+npm install
+npx expo start
+```
+Aplikasi dapat dijalankan melalui:
+	•	Expo Go
+	•	Android Emulator
+	•	iOS Simulator
+	•	Development Build
