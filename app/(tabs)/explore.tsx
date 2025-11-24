@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
@@ -9,40 +9,66 @@ import IDCardTemplate from '@/components/IDCardTemplate';
 export default function ExploreScreen() {
   const { scanHistory } = useAuth();
   const [printingData, setPrintingData] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [printStatus, setPrintStatus] = useState<'preparing' | 'capturing' | 'printing' | 'done'>('preparing');
   const cardRef = useRef<View>(null);
 
   const handlePrint = async (data: any) => {
     try {
-      // Set data untuk render ID Card
+      // Show preview dengan data
       setPrintingData(data);
+      setShowPreview(true);
+      setPrintStatus('preparing');
       
-      // Tunggu render selesai
+      // Wait for render
       setTimeout(async () => {
-        if (!cardRef.current) return;
+        setPrintStatus('capturing');
+        
+        setTimeout(async () => {
+          if (!cardRef.current) {
+            Alert.alert('Error', 'Card reference tidak tersedia');
+            handleClosePreview();
+            return;
+          }
 
-        // Capture view as image
-        const uri = await captureRef(cardRef, {
-          format: 'png',
-          quality: 1,
-          width: 757,
-          height: 1069,
-        });
+          setPrintStatus('printing');
 
-        // Print image
-        await Print.printAsync({
-          uri,
-          width: 257,
-          height: 364,
-        });
+          // Capture view as image
+          const uri = await captureRef(cardRef, {
+            format: 'png',
+            quality: 1,
+            width: 757,
+            height: 1069,
+          });
 
-        setPrintingData(null);
-        Alert.alert('Success', 'ID Card berhasil dicetak ulang!');
-      }, 500);
+          // Print image
+          await Print.printAsync({
+            uri,
+            width: 257,
+            height: 364,
+          });
+
+          setPrintStatus('done');
+
+          setTimeout(() => {
+            handleClosePreview();
+            Alert.alert('Success! ✅', 'ID Card berhasil dicetak ulang!');
+          }, 1500);
+
+        }, 1500);
+      }, 1000);
+
     } catch (error) {
       console.error('Print error:', error);
-      setPrintingData(null);
-      Alert.alert('Info', 'Gagal mencetak. Coba lagi.');
+      handleClosePreview();
+      Alert.alert('Error', 'Gagal mencetak: ' + (error as Error).message);
     }
+  };
+
+  const handleClosePreview = () => {
+    setShowPreview(false);
+    setPrintingData(null);
+    setPrintStatus('preparing');
   };
 
   return (
@@ -110,14 +136,82 @@ export default function ExploreScreen() {
         </View>
       </ScrollView>
 
-      {/* Hidden ID Card untuk capture */}
-      {printingData && (
-        <View style={styles.hiddenCard}>
-          <View ref={cardRef} collapsable={false}>
-            <IDCardTemplate data={printingData} />
+      {/* Preview Modal - PURE REACT NATIVE */}
+      <Modal
+        visible={showPreview}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.previewOverlay}>
+          <View style={styles.previewContainer}>
+            <View style={styles.previewHeader}>
+              <View style={styles.headerIconContainer}>
+                <Ionicons name="refresh-circle" size={28} color="#10b981" />
+              </View>
+              <Text style={styles.previewTitle}>Re-printing ID Card</Text>
+            </View>
+
+            <View style={styles.statusContainer}>
+              {printStatus === 'preparing' && (
+                <>
+                  <Ionicons name="refresh" size={20} color="#3B82F6" />
+                  <Text style={styles.statusText}>Preparing layout...</Text>
+                </>
+              )}
+              {printStatus === 'capturing' && (
+                <>
+                  <Ionicons name="camera" size={20} color="#F59E0B" />
+                  <Text style={styles.statusText}>Capturing image...</Text>
+                </>
+              )}
+              {printStatus === 'printing' && (
+                <>
+                  <Ionicons name="print" size={20} color="#10b981" />
+                  <Text style={styles.statusText}>Printing...</Text>
+                </>
+              )}
+              {printStatus === 'done' && (
+                <>
+                  <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+                  <Text style={styles.statusText}>Done! ✅</Text>
+                </>
+              )}
+            </View>
+            
+            {printingData && (
+              <View style={styles.previewCardContainer}>
+                <ScrollView 
+                  style={styles.previewScrollView}
+                  contentContainerStyle={styles.previewScrollContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  <View style={styles.previewCardWrapper}>
+                    <View 
+                      ref={cardRef} 
+                      collapsable={false}
+                      style={styles.fullSizeCard}
+                    >
+                      <IDCardTemplate data={printingData} />
+                    </View>
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+
+            <View style={styles.previewFooter}>
+              <View style={styles.footerItem}>
+                <Ionicons name="document-outline" size={16} color="#6B7280" />
+                <Text style={styles.footerText}>Size: B4</Text>
+              </View>
+              <View style={styles.footerItem}>
+                <Ionicons name="print-outline" size={16} color="#6B7280" />
+                <Text style={styles.footerText}>Print Only</Text>
+              </View>
+            </View>
           </View>
         </View>
-      )}
+      </Modal>
     </View>
   );
 }
@@ -252,9 +346,97 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
   },
-  hiddenCard: {
-    position: 'absolute',
-    left: -10000,
-    top: -10000,
+  
+  // Preview Modal Styles
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  previewContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '90%',
+  },
+  previewHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  headerIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  previewTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  statusText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '600',
+  },
+  previewCardContainer: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 8,
+    marginBottom: 16,
+    maxHeight: 450,
+  },
+  previewScrollView: {
+    maxHeight: 450,
+  },
+  previewScrollContent: {
+    alignItems: 'center',
+  },
+  previewCardWrapper: {
+    width: 300,
+    height: 424,
+    overflow: 'hidden',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  fullSizeCard: {
+    transform: [{ scale: 0.396 }],
+    transformOrigin: 'top left',
+    width: 757,
+    height: 1069,
+  },
+  previewFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  footerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#6B7280',
   },
 });

@@ -16,75 +16,85 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Welcome Card */}
         <View style={styles.welcomeCard}>
-          <Text style={styles.welcomeTitle}>Welcome Back!</Text>
-          <Text style={styles.welcomeText}>Halo, {currentUser?.name}</Text>
-          <Text style={styles.welcomeSubtext}>
-            {currentUser?.position} - {currentUser?.company}
-          </Text>
-        </View>
-
-        {/* My QR Code Section */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>QR Code Saya</Text>
-            <TouchableOpacity onPress={() => setShowMyQR(!showMyQR)}>
-              <Ionicons 
-                name={showMyQR ? "chevron-up" : "chevron-down"} 
-                size={24} 
-                color="#6B7280" 
-              />
-            </TouchableOpacity>
-          </View>
-          
-          {showMyQR && (
-            <View style={styles.qrContainer}>
-              <View style={styles.qrWrapper}>
-                <QRCode
-                  value={currentUser?.id || ''}
-                  size={200}
-                  backgroundColor="white"
-                  color="black"
-                />
-              </View>
-              <Text style={styles.qrLabel}>ID: {currentUser?.id}</Text>
-              <Text style={styles.qrSubtext}>
-                Scan QR ini untuk melihat data Anda
-              </Text>
-              <View style={styles.qrInfoBox}>
-                <View style={styles.qrInfoRow}>
-                  <Ionicons name="person-outline" size={16} color="#6B7280" />
-                  <Text style={styles.qrInfoText}>{currentUser?.name}</Text>
-                </View>
-                <View style={styles.qrInfoRow}>
-                  <Ionicons name="business-outline" size={16} color="#6B7280" />
-                  <Text style={styles.qrInfoText}>{currentUser?.company}</Text>
-                </View>
-                <View style={styles.qrInfoRow}>
-                  <Ionicons name="briefcase-outline" size={16} color="#6B7280" />
-                  <Text style={styles.qrInfoText}>{currentUser?.position}</Text>
-                </View>
-              </View>
-            </View>
+          <Text style={styles.welcomeTitle}>QR Code Scanner</Text>
+          <Text style={styles.welcomeText}>Scan QR untuk membuat ID Card</Text>
+          {currentUser && (
+            <Text style={styles.welcomeSubtext}>
+              {currentUser.position} - {currentUser.company}
+            </Text>
           )}
         </View>
 
+        {/* My QR Code Section - Only if logged in */}
+        {currentUser && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>QR Code Saya</Text>
+              <TouchableOpacity onPress={() => setShowMyQR(!showMyQR)}>
+                <Ionicons 
+                  name={showMyQR ? "chevron-up" : "chevron-down"} 
+                  size={24} 
+                  color="#6B7280" 
+                />
+              </TouchableOpacity>
+            </View>
+            
+            {showMyQR && (
+              <View style={styles.qrContainer}>
+                <View style={styles.qrWrapper}>
+                  <QRCode
+                    value={currentUser.id}
+                    size={200}
+                    backgroundColor="white"
+                    color="black"
+                  />
+                </View>
+                <Text style={styles.qrLabel}>ID: {currentUser.id}</Text>
+                <Text style={styles.qrSubtext}>
+                  Scan QR ini untuk melihat data Anda
+                </Text>
+                <View style={styles.qrInfoBox}>
+                  <View style={styles.qrInfoRow}>
+                    <Ionicons name="person-outline" size={16} color="#6B7280" />
+                    <Text style={styles.qrInfoText}>{currentUser.name}</Text>
+                  </View>
+                  <View style={styles.qrInfoRow}>
+                    <Ionicons name="business-outline" size={16} color="#6B7280" />
+                    <Text style={styles.qrInfoText}>{currentUser.company}</Text>
+                  </View>
+                  <View style={styles.qrInfoRow}>
+                    <Ionicons name="briefcase-outline" size={16} color="#6B7280" />
+                    <Text style={styles.qrInfoText}>{currentUser.position}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Quick Action */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Quick Actions</Text>
+          <Text style={styles.cardTitle}>Scanner</Text>
           <TouchableOpacity 
             style={styles.scanButton}
             onPress={() => setShowScanner(true)}
           >
             <Ionicons name="camera" size={20} color="#fff" />
-            <Text style={styles.scanButtonText}>Scan QR Code Orang Lain</Text>
+            <Text style={styles.scanButtonText}>Scan QR Code</Text>
           </TouchableOpacity>
+          <Text style={styles.scanHint}>
+            Scan QR Code visitor untuk membuat ID Card
+          </Text>
         </View>
 
         {/* Recent Scans */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Recent Scans</Text>
           {scanHistory.length === 0 ? (
-            <Text style={styles.emptyText}>Belum ada scan</Text>
+            <View style={styles.emptyState}>
+              <Ionicons name="document-outline" size={48} color="#D1D5DB" />
+              <Text style={styles.emptyText}>Belum ada scan</Text>
+            </View>
           ) : (
             scanHistory.slice(0, 3).map((scan) => (
               <View key={scan.scanId} style={styles.scanItem}>
@@ -101,13 +111,15 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Settings Link */}
-        <Link href="/modal" asChild>
-          <TouchableOpacity style={styles.settingsButton}>
-            <Ionicons name="settings-outline" size={20} color="#3B82F6" />
-            <Text style={styles.settingsText}>Settings</Text>
-          </TouchableOpacity>
-        </Link>
+        {/* Settings Link - Only if logged in */}
+        {currentUser && (
+          <Link href="/modal" asChild>
+            <TouchableOpacity style={styles.settingsButton}>
+              <Ionicons name="settings-outline" size={20} color="#3B82F6" />
+              <Text style={styles.settingsText}>Settings</Text>
+            </TouchableOpacity>
+          </Link>
+        )}
       </ScrollView>
 
       <ScannerModal 
@@ -223,10 +235,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  scanHint: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
   emptyText: {
     textAlign: 'center',
     color: '#9CA3AF',
-    paddingVertical: 16,
+    marginTop: 12,
   },
   scanItem: {
     flexDirection: 'row',

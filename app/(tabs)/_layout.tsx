@@ -1,16 +1,9 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@/hooks/useAuth';
-import { Redirect } from 'expo-router';
-import { useEffect } from 'react';
 
 export default function TabLayout() {
-  const { currentUser } = useAuth();
-
-  if (!currentUser) {
-    return <Redirect href="/auth" />;
-  }
-
+  // REMOVED AUTH CHECK - Langsung masuk tanpa login!
+  
   return (
     <Tabs
       screenOptions={{
@@ -21,8 +14,6 @@ export default function TabLayout() {
           backgroundColor: '#fff',
           borderTopWidth: 1,
           borderTopColor: '#E5E7EB',
-          paddingBottom: 8,
-          paddingTop: 8,
         },
       }}
     >
