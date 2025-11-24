@@ -1,302 +1,611 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import QRCode from 'react-native-qrcode-svg';
-import ScannerModal from '@/components/ScannerModal';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { MOCK_QR_DATA } from '@/constants/MockData';
+import * as Print from 'expo-print';
+import { captureRef } from 'react-native-view-shot';
+import IDCardTemplate from '@/components/IDCardTemplate';
 
 export default function HomeScreen() {
-  const { currentUser, scanHistory } = useAuth();
-  const [showScanner, setShowScanner] = useState(false);
-  const [showMyQR, setShowMyQR] = useState(false);
+  // ========================================
+  // HOOKS & STATE
+  // ========================================
+  const { currentUser, scanHistory, addScanHistory } = useAuth();
+  const [permission, requestPermission] = useCameraPermissions();
+  const [isCameraActive, setIsCameraActive] = useState(true); // Default: Camera ON
+  const [scanned, setScanned] = useState(false); // Prevent multiple scans
+  const [scanSuccess, setScanSuccess] = useState(false); // Show success feedback
+  const [countdown, setCountdown] = useState(3); // Countdown 3 seconds
+  const [cardData, setCardData] = useState<any>(null); // Data untuk print
+  const [isPrinting, setIsPrinting] = useState(false); // Status printing
+  const cardRef = useRef<View>(null); // Reference untuk capture card
 
+  // === Prevent Spam Scan ===
+  const scanLockRef = useRef(false);
+
+  // ========================================
+  // REQUEST CAMERA PERMISSION ON MOUNT
+  // ========================================
+  useEffect(() => {
+    if (!permission?.granted) {
+      requestPermission();
+    }
+  }, [permission]);
+
+  // ========================================
+  // COUNTDOWN TIMER (3 seconds)
+  // ========================================
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+
+    // Jika scan success, mulai countdown
+    if (scanSuccess && countdown > 0) {
+      timer = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+    }
+
+    // Jika countdown habis (0), print!
+    if (scanSuccess && countdown === 0) {
+      handlePrint();
+    }
+
+    return () => clearTimeout(timer);
+  }, [scanSuccess, countdown]);
+
+  // ========================================
+  // HANDLE BARCODE SCANNED
+  // ========================================
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
+    // ====== DOUBLE SCAN LOCK (5 DETIK) ======
+    if (scanLockRef.current) {
+      console.log("SCAN DITOLAK — masih dalam cooldown");
+      return;
+    }
+
+    // Kunci langsung (tanpa re-render)
+    scanLockRef.current = true;
+    console.log("SCAN MASUK:", data);
+
+    // Buka kembali dalam 5 detik
+    setTimeout(() => {
+      scanLockRef.current = false;
+      console.log("SCAN LOCK DIBUKA");
+    }, 5000);
+
+    // ====== PROSES DATA QR ======
+    const qrData = MOCK_QR_DATA[data];
+
+    if (!qrData) {
+      console.log("QR INVALID:", data);
+      Alert.alert("QR Code tidak dikenali");
+      return;
+    }
+
+    const scanRecord = {
+      ...qrData,
+      timestamp: new Date().toLocaleString("id-ID"),
+      scanId: Date.now(),
+    };
+
+    addScanHistory(scanRecord);
+    setCardData(scanRecord);
+
+    // Tampilkan feedback + countdown print
+    setScanSuccess(true);
+    setCountdown(3);
+
+    console.log("SCAN SUCCESS:", scanRecord);
+  };
+
+  // ========================================
+  // HANDLE PRINT (Auto after 3 seconds)
+  // ========================================
+  const handlePrint = async () => {
+    if (!cardData || !cardRef.current) {
+      Alert.alert("Error", "Data tidak tersedia");
+      resetScanState();
+      scanLockRef.current = false;
+      return;
+    }
+
+    setIsPrinting(true);
+    console.log("PRINT START");
+
+    try {
+      // Delay sedikit agar layout kelar render
+      await new Promise(resolve => setTimeout(resolve, 400));
+
+      const uri = await captureRef(cardRef, {
+        format: "png",
+        quality: 1,
+      });
+
+      console.log("CAPTURE URI:", uri);
+
+      await Print.printAsync({ uri });
+
+      console.log("PRINT SUCCESS");
+      Alert.alert("Berhasil", `ID Card untuk ${cardData.name} dicetak`);
+
+    } catch (err: any) {
+      console.log("PRINT ERROR:", err);
+
+      Alert.alert(
+        "Gagal Print",
+        err?.message || "Printer tidak terdeteksi atau proses gagal"
+      );
+
+      // 🔓 buka kunci scan lagi kalau error
+      scanLockRef.current = false;
+
+    } finally {
+      resetScanState();
+    }
+  };
+
+  // ========================================
+  // RESET SCAN STATE
+  // ========================================
+  const resetScanState = () => {
+    setScanned(false);
+    setScanSuccess(false);
+    setCountdown(3);
+    setCardData(null);
+    setIsPrinting(false);
+
+    // Kunci scan dibuka
+    scanLockRef.current = false;
+    console.log("RESET STATE — LOCK DIBUKA");
+  };
+
+  // ========================================
+  // TOGGLE CAMERA ON/OFF
+  // ========================================
+  const toggleCamera = () => {
+    setIsCameraActive(!isCameraActive);
+    // Reset scan state jika camera dimatikan
+    if (isCameraActive) {
+      resetScanState();
+    }
+  };
+
+  // ========================================
+  // RENDER
+  // ========================================
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Welcome Card */}
-        <View style={styles.welcomeCard}>
-          <Text style={styles.welcomeTitle}>QR Code Scanner</Text>
-          <Text style={styles.welcomeText}>Scan QR untuk membuat ID Card</Text>
-          {currentUser && (
-            <Text style={styles.welcomeSubtext}>
-              {currentUser.position} - {currentUser.company}
-            </Text>
+
+        {/* ========== CAMERA SCANNER CARD ========== */}
+        <View style={styles.scannerCard}>
+          {/* Camera Header */}
+          <View style={styles.scannerHeader}>
+            <View style={styles.scannerTitleContainer}>
+              <Ionicons name="qr-code-outline" size={28} color="#10b981" />
+              <Text style={styles.scannerTitle}>QR Code Scanner</Text>
+            </View>
+
+            {/* Toggle Camera Button */}
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                !isCameraActive && styles.toggleButtonOff
+              ]}
+              onPress={toggleCamera}
+              disabled={isPrinting}
+            >
+              <Ionicons name={isCameraActive ? "camera" : "close"} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Camera View */}
+          {isCameraActive && permission?.granted ? (
+            <View style={styles.cameraContainer}>
+              <CameraView
+                style={styles.camera}
+                facing="back"
+                onBarcodeScanned={scanLockRef.current ? undefined : handleBarCodeScanned}
+                barcodeScannerSettings={{
+                  barcodeTypes: ['qr'],
+                }}
+              >
+                {/* Camera Overlay */}
+                <View style={styles.cameraOverlay}>
+                  {/* Scan Frame */}
+                  <View style={styles.scanFrame}>
+                    <View style={[styles.corner, styles.topLeft]} />
+                    <View style={[styles.corner, styles.topRight]} />
+                    <View style={[styles.corner, styles.bottomLeft]} />
+                    <View style={[styles.corner, styles.bottomRight]} />
+
+                    {/* Center Icon */}
+                    {!scanSuccess && (
+                      <Ionicons name="scan" size={80} color="rgba(255,255,255,0.3)" />
+                    )}
+
+                    {/* Success Checkmark */}
+                    {scanSuccess && (
+                      <View style={styles.successContainer}>
+                        <Ionicons name="checkmark-circle" size={80} color="#10b981" />
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Status Text */}
+                  {!scanSuccess ? (
+                    <Text style={styles.cameraText}>
+                      Arahkan kamera ke QR Code
+                    </Text>
+                  ) : (
+                    <View style={styles.countdownContainer}>
+                      <Text style={styles.countdownText}>
+                        Scan Berhasil! ✅
+                      </Text>
+                      <Text style={styles.countdownNumber}>
+                        Print dalam {countdown} detik...
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </CameraView>
+            </View>
+          ) : (
+            // Camera Off State
+            <View style={styles.cameraOff}>
+              <Ionicons name="camera-outline" />
+              <Text style={styles.cameraOffText}>
+                {!permission?.granted
+                  ? 'Izin kamera diperlukan'
+                  : 'Kamera dimatikan'}
+              </Text>
+              {!permission?.granted && (
+                <TouchableOpacity
+                  style={styles.permissionButton}
+                  onPress={requestPermission}
+                >
+                  <Text style={styles.permissionButtonText}>
+                    Izinkan Akses Kamera
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </View>
 
-        {/* My QR Code Section - Only if logged in */}
-        {currentUser && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>QR Code Saya</Text>
-              <TouchableOpacity onPress={() => setShowMyQR(!showMyQR)}>
-                <Ionicons 
-                  name={showMyQR ? "chevron-up" : "chevron-down"} 
-                  size={24} 
-                  color="#6B7280" 
-                />
-              </TouchableOpacity>
-            </View>
-            
-            {showMyQR && (
-              <View style={styles.qrContainer}>
-                <View style={styles.qrWrapper}>
-                  <QRCode
-                    value={currentUser.id}
-                    size={200}
-                    backgroundColor="white"
-                    color="black"
-                  />
-                </View>
-                <Text style={styles.qrLabel}>ID: {currentUser.id}</Text>
-                <Text style={styles.qrSubtext}>
-                  Scan QR ini untuk melihat data Anda
-                </Text>
-                <View style={styles.qrInfoBox}>
-                  <View style={styles.qrInfoRow}>
-                    <Ionicons name="person-outline" size={16} color="#6B7280" />
-                    <Text style={styles.qrInfoText}>{currentUser.name}</Text>
-                  </View>
-                  <View style={styles.qrInfoRow}>
-                    <Ionicons name="business-outline" size={16} color="#6B7280" />
-                    <Text style={styles.qrInfoText}>{currentUser.company}</Text>
-                  </View>
-                  <View style={styles.qrInfoRow}>
-                    <Ionicons name="briefcase-outline" size={16} color="#6B7280" />
-                    <Text style={styles.qrInfoText}>{currentUser.position}</Text>
-                  </View>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Quick Action */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Scanner</Text>
-          <TouchableOpacity 
-            style={styles.scanButton}
-            onPress={() => setShowScanner(true)}
-          >
-            <Ionicons name="camera" size={20} color="#fff" />
-            <Text style={styles.scanButtonText}>Scan QR Code</Text>
-          </TouchableOpacity>
-          <Text style={styles.scanHint}>
-            Scan QR Code visitor untuk membuat ID Card
+        {/* ========== HOME TITLE ========== */}
+        <View style={styles.homeHeader}>
+          <Text style={styles.homeTitle}>Home</Text>
+          <Text style={styles.homeSubtitle}>
+            Scan QR untuk membuat ID Card visitor
           </Text>
         </View>
 
-        {/* Recent Scans */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Recent Scans</Text>
+        {/* ========== STATS CARD ========== */}
+        <View style={styles.statsCard}>
+          <View style={styles.statsIconContainer}>
+            <Ionicons name="people" size={32} color="#10b981" />
+          </View>
+          <View style={styles.statsContent}>
+            <Text style={styles.statsNumber}>{scanHistory.length}</Text>
+            <Text style={styles.statsLabel}>Total Visitor Hari Ini</Text>
+          </View>
+        </View>
+
+        {/* ========== RECENT SCANS ========== */}
+        <View style={styles.recentCard}>
+          <Text style={styles.recentTitle}>Recent Scans</Text>
           {scanHistory.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="document-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyText}>Belum ada scan</Text>
+              <Ionicons name="document-text-outline" size={48} color="#D1D5DB" />
+              <Text style={styles.emptyText}>Belum ada scan hari ini</Text>
             </View>
           ) : (
             scanHistory.slice(0, 3).map((scan) => (
               <View key={scan.scanId} style={styles.scanItem}>
-                <View style={styles.scanIcon}>
-                  <Ionicons name="person" size={20} color="#3B82F6" />
-                </View>
                 <View style={styles.scanInfo}>
                   <Text style={styles.scanName}>{scan.name}</Text>
-                  <Text style={styles.scanCompany}>{scan.company}</Text>
                   <Text style={styles.scanTime}>{scan.timestamp}</Text>
+                </View>
+                <View style={styles.scanQR}>
+                  <Ionicons name="qr-code" size={40} color="#10b981" />
                 </View>
               </View>
             ))
           )}
         </View>
 
-        {/* Settings Link - Only if logged in */}
-        {currentUser && (
-          <Link href="/modal" asChild>
-            <TouchableOpacity style={styles.settingsButton}>
-              <Ionicons name="settings-outline" size={20} color="#3B82F6" />
-              <Text style={styles.settingsText}>Settings</Text>
-            </TouchableOpacity>
-          </Link>
-        )}
       </ScrollView>
 
-      <ScannerModal 
-        visible={showScanner} 
-        onClose={() => setShowScanner(false)} 
-      />
+      {/* ========== HIDDEN ID CARD FOR PRINTING ========== */}
+      {cardData && (
+        <View style={styles.hiddenCard}>
+          <View ref={cardRef} collapsable={false}>
+            <IDCardTemplate data={cardData} />
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
+// ========================================
+// STYLES
+// ========================================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F3F4F6',
   },
-  welcomeCard: {
-    backgroundColor: '#3B82F6',
-    margin: 16,
-    padding: 24,
-    borderRadius: 16,
-  },
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  welcomeText: {
-    fontSize: 16,
-    color: '#E0E7FF',
-  },
-  welcomeSubtext: {
-    fontSize: 14,
-    color: '#DBEAFE',
-    marginTop: 4,
-  },
-  card: {
+
+  // Scanner Card
+  scannerCard: {
     backgroundColor: '#fff',
-    margin: 16,
-    marginTop: 0,
-    padding: 16,
-    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  cardHeader: {
+  scannerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  qrContainer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  qrWrapper: {
     padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  qrLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginTop: 8,
-  },
-  qrSubtext: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 4,
-    marginBottom: 16,
-  },
-  qrInfoBox: {
-    width: '100%',
-    backgroundColor: '#F9FAFB',
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  qrInfoRow: {
+  scannerTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
-  qrInfoText: {
-    fontSize: 13,
-    color: '#374151',
-    flex: 1,
+  scannerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
   },
-  scanButton: {
-    backgroundColor: '#3B82F6',
-    padding: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
+  toggleButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#10b981',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
   },
-  scanButtonText: {
+  toggleButtonOff: {
+    backgroundColor: '#EF4444',
+  },
+
+  // Camera
+  cameraContainer: {
+    width: '100%',
+    height: 400,
+    backgroundColor: '#000',
+  },
+  camera: {
+    flex: 1,
+  },
+  cameraOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scanFrame: {
+    width: 250,
+    height: 250,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  corner: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderColor: '#10b981',
+  },
+  topLeft: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 5,
+    borderLeftWidth: 5,
+  },
+  topRight: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 5,
+    borderRightWidth: 5,
+  },
+  bottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 5,
+    borderLeftWidth: 5,
+  },
+  bottomRight: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 5,
+    borderRightWidth: 5,
+  },
+  successContainer: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    borderRadius: 50,
+    padding: 20,
+  },
+  cameraText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 30,
   },
-  scanHint: {
-    fontSize: 13,
+  countdownContainer: {
+    alignItems: 'center',
+    marginTop: 30,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  countdownText: {
+    color: '#10b981',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  countdownNumber: {
+    color: '#fff',
+    fontSize: 16,
+    marginTop: 4,
+  },
+
+  // Camera Off
+  cameraOff: {
+    height: 400,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    gap: 16,
+  },
+  cameraOffText: {
+    fontSize: 16,
     color: '#6B7280',
-    textAlign: 'center',
-    marginTop: 12,
+  },
+  permissionButton: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  permissionButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  // Home Header
+  homeHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 16,
+  },
+  homeTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  homeSubtitle: {
+    fontSize: 15,
+    color: '#6B7280',
+  },
+
+  // Stats Card
+  statsCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 20,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  statsIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statsContent: {
+    flex: 1,
+  },
+  statsNumber: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#10b981',
+  },
+  statsLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+
+  // Recent Scans
+  recentCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  recentTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 16,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: 32,
   },
   emptyText: {
-    textAlign: 'center',
+    fontSize: 14,
     color: '#9CA3AF',
     marginTop: 12,
   },
   scanItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    gap: 12,
-  },
-  scanIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   scanInfo: {
     flex: 1,
   },
   scanName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
-  },
-  scanCompany: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
+    marginBottom: 4,
   },
   scanTime: {
-    fontSize: 11,
+    fontSize: 13,
     color: '#9CA3AF',
-    marginTop: 4,
   },
-  settingsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    margin: 16,
-    padding: 12,
+  scanQR: {
+    marginLeft: 12,
   },
-  settingsText: {
-    fontSize: 14,
-    color: '#3B82F6',
-    fontWeight: '500',
+
+  // Hidden Card
+  hiddenCard: {
+    position: 'absolute',
+    left: -10000,
+    top: -10000,
   },
 });

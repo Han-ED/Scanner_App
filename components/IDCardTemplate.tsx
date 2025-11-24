@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
-import Svg, { Path, Defs, LinearGradient, Stop, Ellipse } from 'react-native-svg';
 
+// ========================================
+// INTERFACE
+// ========================================
 interface IDCardProps {
   data: {
     id: string;
@@ -17,267 +19,241 @@ interface IDCardProps {
   };
 }
 
+// ========================================
+// BACKGROUND IMAGE PATH
+// Ubah path ini untuk ganti background!
+// ========================================
+const BACKGROUND_IMAGE = require('@/assets/images/id-card-bg.png');
+// Alternatif: gunakan URL
+// const BACKGROUND_IMAGE = { uri: 'https://your-url.com/background.png' };
+
 export default function IDCardTemplate({ data }: IDCardProps) {
-  const cardWidth = 757; // B4 width in pixels (257mm at 72dpi)
-  const cardHeight = 1069; // B4 height in pixels (364mm at 72dpi)
-
+  // ========================================
+  // RENDER
+  // ========================================
   return (
-    <View style={[styles.card, { width: cardWidth, height: cardHeight }]}>
-      {/* Wave Background Top */}
-      <View style={styles.waveTopContainer}>
-        <Svg width={cardWidth} height={200} viewBox={`0 0 ${cardWidth} 200`}>
-          <Defs>
-            <LinearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#059669" stopOpacity="1" />
-              <Stop offset="50%" stopColor="#10b981" stopOpacity="1" />
-              <Stop offset="100%" stopColor="#6ee7b7" stopOpacity="1" />
-            </LinearGradient>
-          </Defs>
-          <Ellipse
-            cx={cardWidth / 2}
-            cy={0}
-            rx={cardWidth * 0.6}
-            ry={180}
-            fill="url(#grad1)"
-          />
-        </Svg>
-        <View style={styles.waveTopOutline} />
-      </View>
-
-      {/* Content */}
-      <View style={styles.content}>
-        {/* Company Logo */}
-        <View style={styles.companyLogo}>
-          <Text style={styles.logoText}>🏢</Text>
-        </View>
-
-        {/* Company Name */}
-        <Text style={styles.companyName}>{data.company}</Text>
-        <View style={styles.divider} />
-
-        {/* QR Code */}
-        <View style={styles.qrContainer}>
-          <QRCode
-            value={data.id}
-            size={200}
-            backgroundColor="white"
-            color="black"
-          />
-        </View>
-
-        {/* Visitor Info */}
-        <View style={styles.visitorInfo}>
-          <Text style={styles.infoTitle}>INFORMASI PENGUNJUNG</Text>
+    <View style={styles.card}>
+      {/* Background Image - Ganti di assets/images/id-card-bg.png */}
+      <ImageBackground 
+        source={BACKGROUND_IMAGE}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        {/* Overlay untuk readability */}
+        <View style={styles.overlay} />
+        
+        {/* Content Container */}
+        <View style={styles.content}>
           
-          <View style={styles.infoRow}>
-            <View style={styles.infoIconContainer}>
-              <Ionicons name="person" size={20} color="#10b981" />
+          {/* Header Section */}
+          <View style={styles.header}>
+            {/* Company Logo/Icon */}
+            <View style={styles.companyLogo}>
+              <Text style={styles.logoText}>🏢</Text>
             </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Nama</Text>
-              <Text style={styles.infoValue}>{data.name}</Text>
+            
+            {/* Company Name */}
+            <Text style={styles.companyName}>{data.company}</Text>
+            <View style={styles.divider} />
+          </View>
+
+          {/* QR Code Section */}
+          <View style={styles.qrSection}>
+            <View style={styles.qrContainer}>
+              <QRCode
+                value={data.id}
+                size={180}
+                backgroundColor="white"
+                color="black"
+              />
             </View>
           </View>
 
-          <View style={styles.infoRow}>
-            <View style={styles.infoIconContainer}>
-              <Ionicons name="briefcase" size={20} color="#10b981" />
+          {/* Visitor Info Section */}
+          <View style={styles.infoSection}>
+            <Text style={styles.infoTitle}>INFORMASI PENGUNJUNG</Text>
+            
+            {/* Info Rows */}
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconContainer}>
+                <Ionicons name="person" size={18} color="#10b981" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Nama</Text>
+                <Text style={styles.infoValue}>{data.name}</Text>
+              </View>
             </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Posisi</Text>
-              <Text style={styles.infoValue}>{data.position}</Text>
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconContainer}>
+                <Ionicons name="briefcase" size={18} color="#10b981" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Posisi</Text>
+                <Text style={styles.infoValue}>{data.position}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconContainer}>
+                <Ionicons name="call" size={18} color="#10b981" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Telepon</Text>
+                <Text style={styles.infoValue}>{data.phone}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconContainer}>
+                <Ionicons name="mail" size={18} color="#10b981" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Email</Text>
+                <Text style={styles.infoValue}>{data.email}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+              <View style={styles.infoIconContainer}>
+                <Ionicons name="location" size={18} color="#10b981" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Alamat</Text>
+                <Text style={styles.infoValue}>{data.address}</Text>
+              </View>
             </View>
           </View>
 
-          <View style={styles.infoRow}>
-            <View style={styles.infoIconContainer}>
-              <Ionicons name="call" size={20} color="#10b981" />
+          {/* Footer Section */}
+          <View style={styles.footer}>
+            <View style={styles.footerRow}>
+              <Ionicons name="time" size={14} color="#9CA3AF" />
+              <Text style={styles.footerText}>
+                Waktu Scan: {data.timestamp}
+              </Text>
             </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Telepon</Text>
-              <Text style={styles.infoValue}>{data.phone}</Text>
-            </View>
+            <Text style={styles.footerBadge}>VISITOR PASS</Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <View style={styles.infoIconContainer}>
-              <Ionicons name="mail" size={20} color="#10b981" />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue}>{data.email}</Text>
-            </View>
-          </View>
-
-          <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-            <View style={styles.infoIconContainer}>
-              <Ionicons name="location" size={20} color="#10b981" />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Alamat</Text>
-              <Text style={styles.infoValue}>{data.address}</Text>
-            </View>
-          </View>
         </View>
-      </View>
-
-      {/* Scan Time */}
-      <View style={styles.scanTimeContainer}>
-        <Ionicons name="time" size={16} color="#6B7280" />
-        <Text style={styles.scanTime}>Waktu Scan: {data.timestamp}</Text>
-      </View>
-
-      {/* Footer Text */}
-      <View style={styles.footerContainer}>
-        <Text style={styles.footerText}>VISITOR PASS</Text>
-      </View>
-
-      {/* Wave Background Bottom */}
-      <View style={styles.waveBottomContainer}>
-        <Svg width={cardWidth} height={220} viewBox={`0 0 ${cardWidth} 220`} style={styles.waveBottomSvg}>
-          {/* Layer 3 - Lightest */}
-          <Ellipse
-            cx={cardWidth / 2}
-            cy={220}
-            rx={cardWidth * 0.75}
-            ry={90}
-            fill="#6ee7b7"
-            opacity={0.5}
-          />
-          {/* Layer 2 - Medium */}
-          <Ellipse
-            cx={cardWidth / 2}
-            cy={220}
-            rx={cardWidth * 0.7}
-            ry={100}
-            fill="#10b981"
-            opacity={0.7}
-          />
-          {/* Layer 1 - Darkest */}
-          <Ellipse
-            cx={cardWidth / 2}
-            cy={220}
-            rx={cardWidth * 0.65}
-            ry={120}
-            fill="#059669"
-          />
-        </Svg>
-      </View>
+      </ImageBackground>
     </View>
   );
 }
 
+// ========================================
+// STYLES (B5 Size)
+// ========================================
 const styles = StyleSheet.create({
   card: {
+    width: 515,   // B5 width in pixels
+    height: 728,  // B5 height in pixels
     backgroundColor: '#FFFFFF',
-    position: 'relative',
   },
-  waveTopContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
+  
+  // Background Image
+  backgroundImage: {
+    width: '100%',
+    height: '100%',
   },
-  waveTopOutline: {
-    position: 'absolute',
-    top: 165,
-    left: 0,
-    right: 0,
-    height: 80,
-    borderTopWidth: 2,
-    borderTopColor: '#059669',
-    borderTopLeftRadius: 9999,
-    borderTopRightRadius: 9999,
+  
+  // Overlay untuk readability text
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)', // White overlay 85% opacity
   },
+  
+  // Content
   content: {
-    position: 'relative',
-    zIndex: 10,
-    paddingTop: 240,
-    paddingBottom: 240,
-    paddingHorizontal: 40,
+    flex: 1,
+    padding: 32,
+    justifyContent: 'space-between',
+  },
+  
+  // Header
+  header: {
     alignItems: 'center',
   },
   companyLogo: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#FFFFFF',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#ECFDF5',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   logoText: {
-    fontSize: 60,
+    fontSize: 40,
   },
   companyName: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 3,
-    textAlign: 'center',
-  },
-  divider: {
-    width: 100,
-    height: 4,
-    backgroundColor: '#059669',
-    marginVertical: 24,
-    borderRadius: 2,
-  },
-  qrContainer: {
-    padding: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 4,
-    borderColor: '#059669',
-    marginVertical: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 5,
-  },
-  visitorInfo: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    padding: 32,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  infoTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#059669',
-    marginBottom: 24,
+    color: '#1F2937',
     textTransform: 'uppercase',
     letterSpacing: 2,
     textAlign: 'center',
   },
+  divider: {
+    width: 60,
+    height: 3,
+    backgroundColor: '#10b981',
+    marginTop: 12,
+    borderRadius: 2,
+  },
+  
+  // QR Code
+  qrSection: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  qrContainer: {
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: '#10b981',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  
+  // Info Section
+  infoSection: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#10b981',
+    marginBottom: 16,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 14,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
-    gap: 16,
+    gap: 12,
   },
   infoIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#ECFDF5',
     alignItems: 'center',
     justifyContent: 'center',
@@ -286,57 +262,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#6B7280',
     fontWeight: '500',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   infoValue: {
-    fontSize: 17,
+    fontSize: 14,
     color: '#1F2937',
     fontWeight: '600',
   },
-  scanTimeContainer: {
-    position: 'absolute',
-    bottom: 260,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-    flexDirection: 'row',
+  
+  // Footer
+  footer: {
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
   },
-  scanTime: {
-    fontSize: 15,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  footerContainer: {
-    position: 'absolute',
-    bottom: 120,
-    left: 0,
-    right: 0,
-    zIndex: 20,
+  footerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   footerText: {
-    fontSize: 20,
+    fontSize: 11,
+    color: '#9CA3AF',
+  },
+  footerBadge: {
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-  },
-  waveBottomContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 220,
-    zIndex: 1,
-  },
-  waveBottomSvg: {
-    position: 'absolute',
-    bottom: 0,
+    color: '#10b981',
+    letterSpacing: 2,
+    backgroundColor: 'rgba(236, 253, 245, 0.8)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
 });
