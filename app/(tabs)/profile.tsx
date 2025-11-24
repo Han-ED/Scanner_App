@@ -1,12 +1,37 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
+import { Link } from 'expo-router';
 
 export default function ProfileScreen() {
   const { currentUser } = useAuth();
 
-  if (!currentUser) return null;
+  // Jika belum login, tampilkan prompt untuk login
+  if (!currentUser) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.noUserContainer}>
+          <View style={styles.noUserIcon}>
+            <Ionicons name="person-outline" size={64} color="#9CA3AF" />
+          </View>
+          <Text style={styles.noUserTitle}>Profile Tidak Tersedia</Text>
+          <Text style={styles.noUserText}>
+            Login untuk melihat profile Anda dan mendapatkan QR Code personal
+          </Text>
+          <Link href="/auth" asChild>
+            <TouchableOpacity style={styles.loginButton}>
+              <Ionicons name="log-in-outline" size={20} color="#fff" />
+              <Text style={styles.loginButtonText}>Login / Register</Text>
+            </TouchableOpacity>
+          </Link>
+          <Text style={styles.noUserHint}>
+            Anda tetap bisa scan QR Code tanpa login
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   const profileData = [
     { label: 'Company', value: currentUser.company, icon: 'business-outline' },
@@ -77,6 +102,54 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  noUserContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  noUserIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  noUserTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  noUserText: {
+    fontSize: 15,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 22,
+  },
+  loginButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noUserHint: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    textAlign: 'center',
   },
   card: {
     backgroundColor: '#fff',
